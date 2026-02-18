@@ -1,0 +1,75 @@
+name: Build and Deploy to EC2
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: "9.0.x"
+  APP_NAME: "utangapi"
+  PUBLISH_DIR: ./publish
+  REMOTE_APP_DIR: /opt/utangapi
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore UtangApi/UtangApi.csproj
+
+      - name: Build
+        run: dotnet build UtangApi/UtangApi.csproj --configuration Release --no-restore
+
+      - name: Publish
+        run: dotnet publish UtangApi/UtangApi.csproj --configuration Release --no-build --output ${{ env.PUBLISH_DIR }}
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-publish
+          path: ${{ env.PUBLISH_DIR }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-publish
+          path: ${{ env.PUBLISH_DIR }}
+
+      - name: Copy files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          source: "${{ env.PUBLISH_DIR }}/*"
+          target: ${{ env.REMOTE_APP_DIR }}
+          strip_components: 1
+
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          script: |
+            sudo systemctl stop ${{ env.APP_NAME }} || true
+            sudo chmod +x ${{ env.REMOTE_APP_DIR }}/UtangApi
+            sudo systemctl start ${{ env.APP_NAME }}
+            sudo systemctl status ${{ env.APP_NAME }}
