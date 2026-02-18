@@ -9,7 +9,7 @@ env:
   DOTNET_VERSION: "9.0.x"
   APP_NAME: "utangapi"
   PUBLISH_DIR: ./publish
-  REMOTE_APP_DIR: /opt/utangapi
+  REMOTE_APP_DIR: /var/www/utangapi
 
 jobs:
   build:
