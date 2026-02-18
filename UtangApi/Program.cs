@@ -26,6 +26,10 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
 });
 
+// Health checks
+builder.Services.AddHealthChecks()
+    .AddNpgSql(builder.Configuration.GetConnectionString("DefaultConnection")!, name: "postgresql");
+
 // CORS
 builder.Services.AddCors(options =>
 {
@@ -55,5 +59,6 @@ app.MapContractEndpoints();
 app.MapPaymentEndpoints();
 app.MapOfferEndpoints();
 app.MapDashboardEndpoints();
+app.MapHealthCheckEndpoints();
 
 app.Run();
